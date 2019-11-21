@@ -1,0 +1,117 @@
+package hangman.client;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+
+public class Client extends Thread{
+
+    private String name = "Client";
+    private String host = "localhost";
+    private Integer port = 5050;
+
+    private InetSocketAddress socketAddress;
+    private Socket socket = null;
+    private PrintWriter out;
+    private BufferedReader in;
+
+    private boolean listening = false;
+    private String currentMessage;
+
+    /**
+     * Initializes host, port and callback for UserInterface interactions.
+     *
+     * @param name   String representation of chatName
+     * @param host   String representation of hostname, on which the server should listen
+     * @param port   Integer for the listening port
+     */
+    public Client(String name, String host, Integer port) {
+        if (name != null) this.name = name;
+        if (host != null) this.host = host;
+        if (port != null) this.port = port;
+    }
+
+    /**
+     * Initiating the Socket with already defined Parameters (host, port). Also a timeout of 2000 ms is set at connect.
+     * The {@link java.net.Socket#setKeepAlive(boolean)} is set to true.
+     * <br>
+     * After activating {@link #listening}, the Chatname will be sent to the Server and the reading loop is started,
+     * checking for the {@link BufferedReader#readLine()} and the {@link #listening} flag.
+     * <br>
+     * In case of an Exception the Thread will be interrupted and if the socket was connected and bound,
+     * the {@link #shutdown()} method will be called.
+     */
+    public void run() {
+
+        try {
+            socket = new Socket();
+            socketAddress = new InetSocketAddress(host,port);
+            socket.connect(socketAddress,2000);
+            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            out = new PrintWriter(socket.getOutputStream(),true);
+
+            listening = true;
+            send(this.name+" connected!");
+            String s = null;
+            while(listening&&(s=in.readLine())!=null){
+                System.out.println(s);
+                if(s.equals("exit")){
+                    socket.close();
+                }
+                listening = socket.isConnected();
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    /**
+     * Sending message to the server through network
+     *
+     * @param message Public message for server intercommunication
+     */
+    public void send(String message) {
+        out.println(message);
+    }
+
+    /**
+     * Clean shutdown of Client
+     * <br>
+     * Finally we are closing all open resources.
+     */
+    public void shutdown() {
+    }
+
+    /**
+     * @return True if still listening and online
+     */
+    public boolean isListening() {
+        return this.listening;
+    }
+
+    public static void main(String[] args) {
+        Client client = new Client("Morp","localhost",5050);
+        System.out.println("Starting client...");
+        client.start();
+        try (BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(System.in))){
+            System.out.println("Client started. Waiting for user input");
+            sleep(2000);
+            String input;
+            while (client.isListening() && (input=bufferedReader.readLine())!=null){
+                System.out.println(input);
+                client.send(input);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+
+    }
+}
