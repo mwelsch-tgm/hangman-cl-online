@@ -14,10 +14,11 @@ public class InputOutput{
 
     public ArrayList<String> readFile(){
         ArrayList<String> list = new ArrayList();
-        try(BufferedReader bufferedReader = new BufferedReader(new FileReader(filename));){
+        try(BufferedReader bufferedReader = new BufferedReader(new FileReader(filename))){
             String line;
             while ((line = bufferedReader.readLine()) != null){
                 list.add(line);
+                System.out.println("Reading line... " + line);
             }
         } catch (FileNotFoundException e) {
             list.add("");

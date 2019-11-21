@@ -6,6 +6,8 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class Client extends Thread{
 
@@ -17,6 +19,8 @@ public class Client extends Thread{
     private Socket socket = null;
     private PrintWriter out;
     private BufferedReader in;
+
+    private ExecutorService executorService = Executors.newCachedThreadPool();
 
     private boolean listening = false;
     private String currentMessage;
@@ -52,10 +56,10 @@ public class Client extends Thread{
             socket.connect(socketAddress,2000);
             in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             out = new PrintWriter(socket.getOutputStream(),true);
-
             listening = true;
-            send(this.name+" connected!");
             String s = null;
+            SendInputToClient sitc = new SendInputToClient(this);
+            executorService.execute(sitc);
             while(listening&&(s=in.readLine())!=null){
                 System.out.println(s);
                 if(s.equals("exit")){
@@ -95,23 +99,34 @@ public class Client extends Thread{
     }
 
     public static void main(String[] args) {
-        Client client = new Client("Morp","localhost",5050);
-        System.out.println("Starting client...");
+        if(args.length!=3){
+            System.out.println("[NOT FAILSAFE] Usage: main username localhost port");
+            System.exit(1);
+        }
+        Client client = new Client(args[0],args[1],Integer.parseInt(args[2]));
+        System.out.println("Starting game...");
         client.start();
+
+    }
+}
+class SendInputToClient implements Runnable{
+
+    private Client client;
+
+    public SendInputToClient(Client cl) {
+        this.client = cl;
+    }
+
+    @Override
+    public void run() {
         try (BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(System.in))){
-            System.out.println("Client started. Waiting for user input");
-            sleep(2000);
+            System.out.println("Waiting for input...");
             String input;
-            while (client.isListening() && (input=bufferedReader.readLine())!=null){
-                System.out.println(input);
+            while ((input=bufferedReader.readLine())!=null){
                 client.send(input);
             }
         } catch (IOException e) {
             e.printStackTrace();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
         }
-
-
     }
 }

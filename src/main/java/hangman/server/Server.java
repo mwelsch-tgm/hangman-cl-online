@@ -9,6 +9,7 @@ import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -19,6 +20,8 @@ public class Server {
     private ConcurrentHashMap<Game, String> workerList = new ConcurrentHashMap<>();
     private ExecutorService executorService = Executors.newCachedThreadPool();
     private ArrayList<String> words;
+    private Random randomGenerator;
+    private ServerSocket serverSocket;
 
     /**
      * Initializes host, port and callback for UserInterface interactions.
@@ -27,8 +30,9 @@ public class Server {
      */
     public Server(Integer port) {
         if (port != null) this.port = port;
-        InputOutput io = new InputOutput("words.txt");
+        InputOutput io = new InputOutput("/mnt/storage/gitclones/hangman-cl-online/src/main/java/hangman/words.txt");
         words = io.readFile();
+        randomGenerator = new Random();
     }
 
     /**
@@ -37,28 +41,38 @@ public class Server {
      * to the ExecutorService for immediate concurrent action.
      */
     public void run() {
-        try (ServerSocket serverSocket = new ServerSocket(port);){
+        try (ServerSocket serverSocket = new ServerSocket(port)){
+            this.serverSocket = serverSocket;
             listening = true;
+            System.out.println(words.toString());
             while (listening) {
-                System.out.println("Waiting for players");
+                System.out.println("Waiting for new player...");
                 Socket clientsocket = serverSocket.accept();
-                Game game = new Game(clientsocket);
+                int index = randomGenerator.nextInt(words.size());
+                System.out.println(words.toString());
+                Game game = new Game(clientsocket,words.get(index));
                 executorService.execute(game);
-                /*
-                ClientWorker clientworker = new ClientWorker(clientsocket,this);
-                executorService.execute(clientworker);
-                workerList.put(clientworker,"");*/
+                System.out.println("Accepted a new player...");
             }
         } catch(IOException e){
             e.printStackTrace();
         }
-
-
     }
 
     public static void main(String[] args) {
-        Server miep = new Server(5050);
+        int port = 0;
+        try{
+            port = Integer.parseInt(args[0]);
+        } catch (NumberFormatException e) {
+            e.printStackTrace();
+        }
+        Server miep = new Server(port);
         miep.run();
+        System.out.println("Running on localhost:"+miep.getPort());
+    }
+
+    private int getPort() {
+        return this.serverSocket.getLocalPort();
     }
 
 
@@ -85,8 +99,9 @@ class Game implements Runnable {
     Game(Socket socket, String answer) throws IOException {
         this.socket = socket;
         this.hangman = new Hangman(answer,10);
+        System.out.println(answer);
         out = new PrintWriter(socket.getOutputStream(),true);
-        in = new BufferedReader(new InputStreamReader(socket        .getInputStream()));
+        in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
     }
 
     /**
@@ -100,21 +115,38 @@ class Game implements Runnable {
     public void run() {
         String msg;
         try{
-            System.out.println("Accepted connection,W8 for user input");
+            out.println(this.hangman.showObscuredAnswer());
             while(listening && (msg = in.readLine())!= null){
-                System.out.println("Received: " + msg);
-                System.out.println(msg.length()==1);
                 if(msg.length()==1){
                     char c = msg.charAt(0);
-                    System.out.println(this.hangman);
-                    System.out.println(this.hangman.showObscuredAnswer());
-                    System.out.println(c);
-
                     this.hangman.guess(c);
-                    out.println(this.hangman.showObscuredAnswer());
+                    if(this.hangman.isWon()){
+                        out.println("You won!");
+                        listening = false;
+                        break;
+                    }
+                    else if(this.hangman.outOfTries()){
+                        listening = false;
+                        out.println("You lost!");
+                        break;
+                    }
                 }
+                else if(msg.length()>=1){
+                    boolean b = this.hangman.aufloesen(msg);
+                    if(b){
+                        out.println("You won!");
+                    }
+                    else if(!b){
+                        out.println("You lost!");
+                    }
+                    listening = false;
+                    break;
+                }
+                out.println("Remaining tries: " + this.hangman.getRemainingTries());
+                out.println(this.hangman.showObscuredAnswer());
 
             }
+            socket.close();
         }catch(IOException e){
             e.printStackTrace();
         }

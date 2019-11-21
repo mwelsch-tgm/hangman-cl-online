@@ -7,6 +7,7 @@ public class Hangman{
 
     private ArrayList<Character> answer, hit, miss;
     private int maxGuesses;
+    private boolean guessedWholeWord = false;
 
     public Hangman(String answer, int maxGuesses) {
         this.answer = new ArrayList<Character>();
@@ -37,6 +38,15 @@ public class Hangman{
         return  maxGuesses - miss.size();
     }
 
+    public boolean aufloesen(String guess){
+        guessedWholeWord = true;
+        String s = "";
+        for (char c:answer) {
+            s+=c;
+        }
+        return s.equals(guess);
+    }
+
     public  String showObscuredAnswer(){
         String s = "";
         for (char c:answer) {
@@ -52,6 +62,10 @@ public class Hangman{
 
     public boolean isWon() {
         return this.showObscuredAnswer().indexOf('_') == -1;
+    }
+
+    public boolean outOfTries() {
+        return getRemainingTries() <=0;
     }
 
 }
