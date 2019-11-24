@@ -30,3 +30,16 @@ dependencies {
 
 // Define the main class for the application
 mainClassName = 'hangman.App'
+
+task client(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    standardInput = System.in
+    main = 'hangman.client.Client'
+}
+
+task server(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    standardInput = System.in
+    main = 'hangman.server.Server'
+}
+

@@ -15,7 +15,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class Server {
-    private Integer port = 5050;
+    private Integer port = 0;
     private boolean listening = false;
     private ConcurrentHashMap<Game, String> workerList = new ConcurrentHashMap<>();
     private ExecutorService executorService = Executors.newCachedThreadPool();
@@ -60,6 +60,7 @@ public class Server {
     }
 
     public static void main(String[] args) {
+        System.out.println("Usage: gradle server --args=\"[portNumber]\"");
         int port = 0;
         try{
             port = Integer.parseInt(args[0]);

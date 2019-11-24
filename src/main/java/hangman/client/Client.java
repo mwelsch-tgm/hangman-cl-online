@@ -100,7 +100,7 @@ public class Client extends Thread{
 
     public static void main(String[] args) {
         if(args.length!=3){
-            System.out.println("[NOT FAILSAFE] Usage: main username localhost port");
+            System.out.println("[NOT FAILSAFE] Usage: gradle client --args=\"username serverip port\"");
             System.exit(1);
         }
         Client client = new Client(args[0],args[1],Integer.parseInt(args[2]));
