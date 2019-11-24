@@ -18,7 +18,6 @@ public class InputOutput{
             String line;
             while ((line = bufferedReader.readLine()) != null){
                 list.add(line);
-                System.out.println("Reading line... " + line);
             }
         } catch (FileNotFoundException e) {
             list.add("");

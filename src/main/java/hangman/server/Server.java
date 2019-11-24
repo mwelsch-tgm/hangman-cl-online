@@ -43,13 +43,12 @@ public class Server {
     public void run() {
         try (ServerSocket serverSocket = new ServerSocket(port)){
             this.serverSocket = serverSocket;
+            System.out.println("Running on localhost:"+this.getPort());
             listening = true;
-            System.out.println(words.toString());
             while (listening) {
                 System.out.println("Waiting for new player...");
                 Socket clientsocket = serverSocket.accept();
                 int index = randomGenerator.nextInt(words.size());
-                System.out.println(words.toString());
                 Game game = new Game(clientsocket,words.get(index));
                 executorService.execute(game);
                 System.out.println("Accepted a new player...");
@@ -69,7 +68,6 @@ public class Server {
         }
         Server miep = new Server(port);
         miep.run();
-        System.out.println("Running on localhost:"+miep.getPort());
     }
 
     private int getPort() {
@@ -100,7 +98,7 @@ class Game implements Runnable {
     Game(Socket socket, String answer) throws IOException {
         this.socket = socket;
         this.hangman = new Hangman(answer,10);
-        System.out.println(answer);
+        System.out.println("The answer for the new player is: " + answer);
         out = new PrintWriter(socket.getOutputStream(),true);
         in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
     }
@@ -147,7 +145,7 @@ class Game implements Runnable {
                 out.println(this.hangman.showObscuredAnswer());
 
             }
-            socket.close();
+            this.shutdown();
         }catch(IOException e){
             e.printStackTrace();
         }
@@ -158,6 +156,23 @@ class Game implements Runnable {
      * Finally we are closing all open resources.
      */
     void shutdown() {
+        listening = false;
+        if(out!=null){
+            out.println("[EXITING NOW]");
+            out.close();
+        }
+
+
+        try {
+            if(in!=null)
+                in.close();
+            if(socket!=null){
+                socket.close();
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
 

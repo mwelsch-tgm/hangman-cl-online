@@ -50,8 +50,8 @@ public class Client extends Thread{
      */
     public void run() {
 
-        try {
-            socket = new Socket();
+        try(Socket socket = new Socket();) {
+            this.socket = socket;
             socketAddress = new InetSocketAddress(host,port);
             socket.connect(socketAddress,2000);
             in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
@@ -61,13 +61,13 @@ public class Client extends Thread{
             SendInputToClient sitc = new SendInputToClient(this);
             executorService.execute(sitc);
             while(listening&&(s=in.readLine())!=null){
-                System.out.println(s);
-                if(s.equals("exit")){
-                    socket.close();
+                if(s.equals("[EXITING NOW]")){
+                    break;
                 }
+                System.out.println(s);
                 listening = socket.isConnected();
             }
-
+            this.shutdown();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -89,6 +89,24 @@ public class Client extends Thread{
      * Finally we are closing all open resources.
      */
     public void shutdown() {
+        listening = false;
+
+        if(executorService!=null)
+            executorService.shutdownNow();
+        System.out.println("Please press enter to exit the game");
+        try {
+            if(in!=null)
+                in.close();
+            if(socket!=null){
+                socket.close();
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        if(out!=null){
+            out.close();
+        }
     }
 
     /**
@@ -122,11 +140,13 @@ class SendInputToClient implements Runnable{
         try (BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(System.in))){
             System.out.println("Waiting for input...");
             String input;
-            while ((input=bufferedReader.readLine())!=null){
+            while (client.isListening()&&(input=bufferedReader.readLine())!=null){
                 client.send(input);
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
+
+
 }
