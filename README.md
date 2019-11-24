@@ -12,3 +12,7 @@ gradle server --args "port"
 gradle client --args "username serverip serverport"
 ```
 
+## TODO
+
+- Top-Liste (Highscore)
+- comments/documentation
