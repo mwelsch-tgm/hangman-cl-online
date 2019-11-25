@@ -60,7 +60,6 @@ public class Client extends Thread{
             listening = true;
             String s = null;
             SendInputToClient sitc = new SendInputToClient(this,bufferedReader);
-
             executorService.execute(sitc);
             while(listening&&(s=in.readLine())!=null){
                 if(s.equals("[EXITING NOW]")){
@@ -121,13 +120,17 @@ public class Client extends Thread{
 
     public static void main(String[] args) {
         if(args.length!=3){
-            System.out.println("Usage: gradle client --args=\"username serverip port\"");
+            System.out.println("Usage: gradle client --args=\"username[without spaces] serverip port\"");
             System.exit(1);
         }
         Client client = new Client(args[0],args[1],Integer.parseInt(args[2]));
         System.out.println("Starting game...");
         client.start();
 
+    }
+
+    public String getGameName() {
+        return name;
     }
 }
 class SendInputToClient implements Runnable{
@@ -143,8 +146,10 @@ class SendInputToClient implements Runnable{
     @Override
     public void run() {
         try {
+
             System.out.println("Waiting for input...");
             String input;
+            client.send("[USERNAME]"+client.getGameName());
             while (client.isListening()&&(input=bufferedReader.readLine())!=null){
                 client.send(input);
             }

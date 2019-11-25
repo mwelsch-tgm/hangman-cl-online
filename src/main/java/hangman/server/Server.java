@@ -14,6 +14,8 @@ import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class Server {
     private Integer port = 0;
@@ -23,6 +25,7 @@ public class Server {
     private ArrayList<String> words;
     private Random randomGenerator;
     private ServerSocket serverSocket;
+    private Lock lock;
 
     /**
      * Initializes host, port and callback for UserInterface interactions.
@@ -34,6 +37,7 @@ public class Server {
         InputOutput io = new InputOutput("/mnt/storage/gitclones/hangman-cl-online/src/main/java/hangman/words.txt");
         words = io.readFile();
         randomGenerator = new Random();
+        this.lock = new ReentrantLock();
     }
 
     public boolean isListening() {
@@ -64,7 +68,7 @@ public class Server {
                 }
 
                 int index = randomGenerator.nextInt(words.size());
-                Game game = new Game(clientsocket,words.get(index));
+                Game game = new Game(clientsocket,words.get(index),lock);
                 executorService.execute(game);
                 this.games.add(game);
                 System.out.println("Accepted a new player...");
@@ -152,19 +156,21 @@ class Game implements Runnable {
     private boolean listening = true;
 
     private Hangman hangman;
-
     /**
      * Init of ClientWorker-Thread for socket intercommunication
      *
      * @param socket   Socket got from ServerSocket.accept()
      * @throws IOException will be throwed if the init of Input- or OutputStream fails
      */
-    Game(Socket socket, String answer) throws IOException {
+    Game(Socket socket, String answer,Lock lock) throws IOException {
         this.socket = socket;
-        this.hangman = new Hangman(answer,10);
+
         System.out.println("The answer for the new player is: " + answer);
         out = new PrintWriter(socket.getOutputStream(),true);
         in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        String username = in.readLine();
+        username = username.substring(10);
+        this.hangman = new Hangman(answer,10,username,lock);
     }
 
     /**
@@ -185,24 +191,22 @@ class Game implements Runnable {
                     this.hangman.guess(c);
                     if(this.hangman.isWon()){
                         out.println("You won!");
-                        listening = false;
                         break;
                     }
                     else if(this.hangman.outOfTries()){
-                        listening = false;
                         out.println("You lost!");
                         break;
                     }
                 }
                 else if(msg.length()>=1){
-                    boolean b = this.hangman.aufloesen(msg);
+                    this.hangman.aufloesen(msg);
+                    boolean b = this.hangman.isWon();
                     if(b){
                         out.println("You won!");
                     }
                     else if(!b){
                         out.println("You lost!");
                     }
-                    listening = false;
                     break;
                 }
                 out.println("Remaining tries: " + this.hangman.getRemainingTries());
@@ -220,6 +224,7 @@ class Game implements Runnable {
      * Finally we are closing all open resources.
      */
     void shutdown() {
+        hangman.addToHighscore();
         listening = false;
         out.println("[EXITING NOW]");
 
