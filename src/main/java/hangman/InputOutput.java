@@ -20,8 +20,8 @@ public class InputOutput{
                 list.add(line);
             }
         } catch (FileNotFoundException e) {
-            list.add("");
-            this.writeToFile(list);
+            //list.add("");
+            //this.writeToFile(list);
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
