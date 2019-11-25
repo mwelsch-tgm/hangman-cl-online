@@ -80,17 +80,14 @@ public class Hangman{
 
     public void addToHighscore(){
         if(isWon()){
-            System.out.println("jup gewonnen");
             Map.Entry<String, Integer> worstPlayer= null;
             try {
                 lock.tryLock(2000,TimeUnit.MILLISECONDS);
-                System.out.println("im lock :)");
                 readTopList();
                 for(Map.Entry<String, Integer> entry : this.topList.entrySet()) {
 
                     String key = entry.getKey();
                     Integer value = entry.getValue();
-                    System.out.println("Key" + key + "Value"+value);
                     if(worstPlayer==null){
                         worstPlayer = new AbstractMap.SimpleEntry<String, Integer>(key,value);
                     }
@@ -102,11 +99,9 @@ public class Hangman{
                     this.topList.remove(worstPlayer.getKey(), worstPlayer.getValue());
                     this.topList.put(this.username,getRemainingTries());
                     writeTopList();
-                    System.out.println("writtn to top list");
+                    System.out.println("The toplist changed!");
                 }
                 lock.unlock();
-                System.out.println("nachm lock xD");
-                System.out.println(worstPlayer.getKey() + worstPlayer.getValue());
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
