@@ -18,7 +18,7 @@ public class Client extends Thread{
     private InetSocketAddress socketAddress;
     private Socket socket = null;
     private PrintWriter out;
-    private BufferedReader in;
+    private BufferedReader in, bufferedReader;
 
     private ExecutorService executorService = Executors.newCachedThreadPool();
 
@@ -50,15 +50,17 @@ public class Client extends Thread{
      */
     public void run() {
 
-        try(Socket socket = new Socket();) {
+        try(Socket socket = new Socket();
+            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(System.in))) {
             this.socket = socket;
             socketAddress = new InetSocketAddress(host,port);
             socket.connect(socketAddress,2000);
-            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            this.in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             out = new PrintWriter(socket.getOutputStream(),true);
             listening = true;
             String s = null;
-            SendInputToClient sitc = new SendInputToClient(this);
+            SendInputToClient sitc = new SendInputToClient(this,bufferedReader);
+
             executorService.execute(sitc);
             while(listening&&(s=in.readLine())!=null){
                 if(s.equals("[EXITING NOW]")){
@@ -93,20 +95,21 @@ public class Client extends Thread{
 
         if(executorService!=null)
             executorService.shutdownNow();
-        System.out.println("Please press enter to exit the game");
         try {
             if(in!=null)
                 in.close();
+            if(bufferedReader!=null)
+                bufferedReader.close();
             if(socket!=null){
                 socket.close();
             }
-
         } catch (IOException e) {
             e.printStackTrace();
         }
         if(out!=null){
             out.close();
         }
+        System.out.println("Press enter to exit");
     }
 
     /**
@@ -118,7 +121,7 @@ public class Client extends Thread{
 
     public static void main(String[] args) {
         if(args.length!=3){
-            System.out.println("[NOT FAILSAFE] Usage: gradle client --args=\"username serverip port\"");
+            System.out.println("Usage: gradle client --args=\"username serverip port\"");
             System.exit(1);
         }
         Client client = new Client(args[0],args[1],Integer.parseInt(args[2]));
@@ -130,14 +133,16 @@ public class Client extends Thread{
 class SendInputToClient implements Runnable{
 
     private Client client;
+    private BufferedReader bufferedReader;
 
-    public SendInputToClient(Client cl) {
+    public SendInputToClient(Client cl, BufferedReader bufferedReader) {
         this.client = cl;
+        this.bufferedReader = bufferedReader;
     }
 
     @Override
     public void run() {
-        try (BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(System.in))){
+        try {
             System.out.println("Waiting for input...");
             String input;
             while (client.isListening()&&(input=bufferedReader.readLine())!=null){

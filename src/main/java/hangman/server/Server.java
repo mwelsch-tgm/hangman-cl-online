@@ -8,6 +8,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
@@ -17,8 +18,8 @@ import java.util.concurrent.Executors;
 public class Server {
     private Integer port = 0;
     private boolean listening = false;
-    private ConcurrentHashMap<Game, String> workerList = new ConcurrentHashMap<>();
     private ExecutorService executorService = Executors.newCachedThreadPool();
+    private ArrayList<Game> games = new ArrayList<>();
     private ArrayList<String> words;
     private Random randomGenerator;
     private ServerSocket serverSocket;
@@ -35,22 +36,37 @@ public class Server {
         randomGenerator = new Random();
     }
 
+    public boolean isListening() {
+        return listening;
+    }
+
     /**
      * Initiating the ServerSocket with already defined Parameters and starts accepting incoming
      * requests. If client connects to the ServerSocket a new ClientWorker will be created and passed
      * to the ExecutorService for immediate concurrent action.
      */
     public void run() {
-        try (ServerSocket serverSocket = new ServerSocket(port)){
+        try (ServerSocket serverSocket = new ServerSocket(port);
+             BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(System.in))){
             this.serverSocket = serverSocket;
-            System.out.println("Running on localhost:"+this.getPort());
             listening = true;
+            System.out.println("Running on localhost:"+this.getPort());
+            System.out.println("Exit with !exit");
+            ReadInput ri = new ReadInput(bufferedReader,this);
+            executorService.execute(ri);
+            Socket clientsocket = null;
             while (listening) {
                 System.out.println("Waiting for new player...");
-                Socket clientsocket = serverSocket.accept();
+                try{
+                    clientsocket = serverSocket.accept();
+                }catch (SocketException e){
+                    break;
+                }
+
                 int index = randomGenerator.nextInt(words.size());
                 Game game = new Game(clientsocket,words.get(index));
                 executorService.execute(game);
+                this.games.add(game);
                 System.out.println("Accepted a new player...");
             }
         } catch(IOException e){
@@ -59,12 +75,16 @@ public class Server {
     }
 
     public static void main(String[] args) {
-        System.out.println("Usage: gradle server --args=\"[portNumber]\"");
         int port = 0;
+        if(args.length!=1){
+            System.out.println("Usage: gradle server --args=\"[portNumber]\"");
+            System.exit(1);
+        }
         try{
             port = Integer.parseInt(args[0]);
         } catch (NumberFormatException e) {
-            e.printStackTrace();
+            System.out.println("Error while parsing your port");
+            System.exit(1);
         }
         Server miep = new Server(port);
         miep.run();
@@ -74,7 +94,51 @@ public class Server {
         return this.serverSocket.getLocalPort();
     }
 
+    /**
+     * Clean shutdown of Server
+     * <br>
+     * Finally we are closing all open resources.
+     */
+    public void shutdown() {
+        listening = false;
+        for (Game game:this.games) {
+            game.shutdown();
+        }
+        try {
+            serverSocket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        if(executorService!=null)
+            executorService.shutdownNow();
+    }
 
+}
+class ReadInput implements Runnable{
+    private BufferedReader in;
+    private Server server;
+
+    public ReadInput(BufferedReader in, Server server) {
+        this.in = in;
+        this.server = server;
+    }
+
+    @Override
+    public void run() {
+        String s;
+            try {
+                while(server.isListening()&&(s=in.readLine())!=null){
+                    if(s.equals("!exit")){
+                        break;
+                    }
+                }
+                server.shutdown();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+
+    }
 }
 /**
  * Thread for client socket connection.<br>
@@ -157,10 +221,7 @@ class Game implements Runnable {
      */
     void shutdown() {
         listening = false;
-        if(out!=null){
-            out.println("[EXITING NOW]");
-            out.close();
-        }
+        out.println("[EXITING NOW]");
 
 
         try {
@@ -173,6 +234,7 @@ class Game implements Runnable {
         } catch (IOException e) {
             e.printStackTrace();
         }
+
     }
 
 
