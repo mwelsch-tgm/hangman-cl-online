@@ -17,6 +17,12 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+/**
+ * With this Server you can provide
+ * a hangman game to everyone who want to play it!
+ * @author Moritz Welsch
+ * @date 2019-11-26
+ */
 public class Server {
     private Integer port = 0;
     private boolean listening = false;
@@ -28,26 +34,34 @@ public class Server {
     private Lock lock;
 
     /**
-     * Initializes host, port and callback for UserInterface interactions.
+     * Initializes port, generates a random object, a lock and reads with the lock the words from the wordlist
+     * When adding or removing something from the wordlist you have to restart the server
      *
      * @param port   Integer for the listening port
      */
     public Server(Integer port) {
         if (port != null) this.port = port;
         InputOutput io = new InputOutput("/mnt/storage/gitclones/hangman-cl-online/src/main/java/hangman/words.txt");
-        words = io.readFile();
-        randomGenerator = new Random();
         this.lock = new ReentrantLock();
+        this.lock.lock();
+        words = io.readFile();
+        this.lock.unlock();
+        randomGenerator = new Random();
+
     }
 
+    /**
+     * @return True if still listening and online
+     */
     public boolean isListening() {
         return listening;
     }
 
     /**
      * Initiating the ServerSocket with already defined Parameters and starts accepting incoming
-     * requests. If client connects to the ServerSocket a new ClientWorker will be created and passed
-     * to the ExecutorService for immediate concurrent action.
+     * requests. If client connects to the ServerSocket a new Game will be created and passed
+     * to the ExecutorService for immediate concurrent action. A thread is started aswell, waiting
+     * for an exit command
      */
     public void run() {
         try (ServerSocket serverSocket = new ServerSocket(port);
@@ -78,6 +92,10 @@ public class Server {
         }
     }
 
+    /**
+     * Start the Server with the given port number
+     * @param args the port number on which the server should listen on in the format [port]
+     */
     public static void main(String[] args) {
         int port = 0;
         if(args.length!=1){
@@ -94,6 +112,10 @@ public class Server {
         miep.run();
     }
 
+    /**
+     * Return the Port on which the server is listening
+     * @return Port on which the server is listening
+     */
     private int getPort() {
         return this.serverSocket.getLocalPort();
     }
@@ -118,15 +140,30 @@ public class Server {
     }
 
 }
+/**
+ * Reads the input, if it is an exit command it shuts the
+ * given server down
+ * @author Moritz Welsch
+ * @date 2019-11-26
+ */
 class ReadInput implements Runnable{
     private BufferedReader in;
     private Server server;
 
+    /**
+     * Initialize the ReadInput
+     * @param in the bufferedReader from which will be read
+     * @param server the server to shut down if an exit command occurs
+     */
     public ReadInput(BufferedReader in, Server server) {
         this.in = in;
         this.server = server;
     }
 
+    /**
+     * starts a loop, based on whether the client is still listening and the bufferedReader beeing null
+     * if the loop is exited or the exit command gets send the server will receive a shutdown signal
+     */
     @Override
     public void run() {
         String s;
@@ -134,6 +171,9 @@ class ReadInput implements Runnable{
                 while(server.isListening()&&(s=in.readLine())!=null){
                     if(s.equals("!exit")){
                         break;
+                    }
+                    else{
+                        System.out.println("Available commands: !exit");
                     }
                 }
                 server.shutdown();
@@ -176,9 +216,7 @@ class Game implements Runnable {
     /**
      * MessageHandler for incoming Messages on Client Socket
      * <br>
-     * The InputSocket will be read synchronous through readLine()
-     * Incoming messages first will be checked if they start with any Commands, which will be executed properly.
-     * Otherwise text messages will be delegated to the {@link Server#received(String, ClientWorker)} method.
+     * Incoming messages first will be checked if they are a single character or a whole word
      */
     @Override
     public void run() {
@@ -220,7 +258,7 @@ class Game implements Runnable {
     }
 
     /**
-     * Clean shutdown of ClientWorker
+     * Clean shutdown of Game
      * Finally we are closing all open resources.
      */
     void shutdown() {

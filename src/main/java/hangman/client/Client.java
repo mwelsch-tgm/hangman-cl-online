@@ -9,6 +9,12 @@ import java.net.Socket;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+/**
+ * With this Client you can Connect to a server
+ * and play hangman on it!
+ * @author Moritz Welsch
+ * @date 2019-11-26
+ */
 public class Client extends Thread{
 
     private String name = "Client";
@@ -26,10 +32,10 @@ public class Client extends Thread{
     private String currentMessage;
 
     /**
-     * Initializes host, port and callback for UserInterface interactions.
+     * Initializes host, port and username
      *
-     * @param name   String representation of chatName
-     * @param host   String representation of hostname, on which the server should listen
+     * @param name   String representation of the username which will be written to the toplist if the player makes it there
+     * @param host   String representation of hostname, on which the server should be listening
      * @param port   Integer for the listening port
      */
     public Client(String name, String host, Integer port) {
@@ -40,18 +46,18 @@ public class Client extends Thread{
 
     /**
      * Initiating the Socket with already defined Parameters (host, port). Also a timeout of 2000 ms is set at connect.
-     * The {@link java.net.Socket#setKeepAlive(boolean)} is set to true.
      * <br>
-     * After activating {@link #listening}, the Chatname will be sent to the Server and the reading loop is started,
-     * checking for the {@link BufferedReader#readLine()} and the {@link #listening} flag.
+     * After activating {@link #listening} and starting a thread which listens to input from the user, the username will be sent to the Server and the reading loop is started,
+     * checking for inputs from the server.
      * <br>
-     * In case of an Exception the Thread will be interrupted and if the socket was connected and bound,
+     * In case of an Exception, or an exit command from the server the Thread will be interrupted and
      * the {@link #shutdown()} method will be called.
      */
     public void run() {
 
         try(Socket socket = new Socket();
             BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(System.in))) {
+            this.bufferedReader = bufferedReader;
             this.socket = socket;
             socketAddress = new InetSocketAddress(host,port);
             socket.connect(socketAddress,2000);
@@ -91,7 +97,7 @@ public class Client extends Thread{
      */
     public void shutdown() {
         listening = false;
-
+        System.out.println("Press enter to exit");
         if(executorService!=null)
             executorService.shutdownNow();
         try {
@@ -108,7 +114,7 @@ public class Client extends Thread{
         if(out!=null){
             out.close();
         }
-        System.out.println("Press enter to exit");
+
     }
 
     /**
@@ -118,6 +124,10 @@ public class Client extends Thread{
         return this.listening;
     }
 
+    /**
+     * Parse the username, server ip and port and start the client
+     * @param args Define the parameters, in this format: [username,serverip,port]
+     */
     public static void main(String[] args) {
         if(args.length!=3){
             System.out.println("Usage: gradle client --args=\"username[without spaces] serverip port\"");
@@ -129,20 +139,39 @@ public class Client extends Thread{
 
     }
 
+    /**
+     * Return the name of the username. Couldn't name it getName,
+     * because I mustn't override that methode
+     * @return
+     */
     public String getGameName() {
         return name;
     }
 }
+/**
+ * Reads Input from a given bufferedReader and sends it to the Client
+ * @author Moritz Welsch
+ * @date 2019-11-26
+ */
 class SendInputToClient implements Runnable{
 
     private Client client;
     private BufferedReader bufferedReader;
 
+    /**
+     * Initialize the Client and the bufferedReader
+     * @param cl the client which the message should get sent to
+     * @param bufferedReader the bufferedReader from which to read
+     */
     public SendInputToClient(Client cl, BufferedReader bufferedReader) {
         this.client = cl;
         this.bufferedReader = bufferedReader;
     }
 
+    /**
+     * Sends the username to the server and then starts a loop,
+     * based on whether the client is still listening and the bufferedReader beeing null
+     */
     @Override
     public void run() {
         try {
